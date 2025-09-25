@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Acompanhamento de Emagrecimento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* cinza claro */
+        }
+        .metric-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Estilo para a barra de rolagem */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .modal {
+            display: none;
+        }
+        .modal.is-open {
+            display: flex;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="app" class="min-h-screen p-4 sm:p-6 lg:p-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Painel de Emagrecimento</h1>
+            <p class="text-gray-600 mt-1">Seu progresso de saúde e bem-estar em um só lugar.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Coluna Principal -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Gráfico de Progresso -->
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">Progresso do Peso</h2>
+                        <select id="chartFilter" class="border border-gray-300 rounded-md p-2 text-sm">
+                            <option value="7">Últimos 7 dias</option>
+                            <option value="30" selected>Últimos 30 dias</option>
+                            <option value="90">Últimos 90 dias</option>
+                            <option value="365">Último Ano</option>
+                        </select>
+                    </div>
+                    <canvas id="progressChart"></canvas>
+                </div>
+
+                <!-- Métricas Corporais -->
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <h2 class="text-xl font-bold mb-4">Minhas Métricas</h2>
+                    <div id="metrics-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                        <!-- Cards de métricas serão inseridos aqui pelo JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coluna Lateral -->
+            <div class="space-y-8">
+                <!-- Ações Rápidas -->
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <h2 class="text-xl font-bold mb-4">Ações Rápidas</h2>
+                    <div class="space-y-3">
+                        <button onclick="openModal('logModal')" class="w-full flex items-center justify-center bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                            <i data-lucide="plus-circle" class="mr-2 h-5 w-5"></i>
+                            Adicionar Novo Registro
+                        </button>
+                         <button onclick="openModal('profileModal')" class="w-full flex items-center justify-center bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors">
+                            <i data-lucide="user" class="mr-2 h-5 w-5"></i>
+                            Editar Perfil
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Resumo do Dia -->
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <h2 class="text-xl font-bold mb-4">Resumo de Hoje</h2>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Calorias Consumidas</span>
+                            <span id="summary-calories" class="font-bold text-lg text-green-600">0 kcal</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">Exercícios Realizados</span>
+                            <span id="summary-exercise" class="font-bold text-lg text-blue-600">0 min</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Histórico de Registros -->
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <h2 class="text-xl font-bold mb-4">Histórico Recente</h2>
+                    <div id="history-list" class="space-y-3 max-h-64 overflow-y-auto pr-2">
+                        <!-- Itens do histórico serão inseridos aqui -->
+                        <p class="text-gray-500 text-center">Nenhum registro encontrado.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Registro -->
+    <div id="logModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+             <div class="sticky top-0 bg-white p-6 border-b z-10">
+                <div class="flex justify-between items-center ">
+                    <h3 class="text-xl font-bold">Novo Registro Diário</h3>
+                    <button onclick="closeModal('logModal')" class="text-gray-500 hover:text-gray-800">&times;</button>
+                </div>
+            </div>
+            <form id="logForm" class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input type="date" id="log-date" class="sm:col-span-2 p-2 border rounded-md" required>
+                <!-- Inputs para as métricas -->
+                <div><label for="log-peso" class="text-sm font-medium">Peso (kg)</label><input type="number" step="0.1" id="log-peso" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 75.5"></div>
+                <div><label for="log-gordura-corporal" class="text-sm font-medium">Gordura Corporal (%)</label><input type="number" step="0.1" id="log-gordura-corporal" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 22.3"></div>
+                <div><label for="log-taxa-muscular" class="text-sm font-medium">Taxa Muscular (%)</label><input type="number" step="0.1" id="log-taxa-muscular" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 35.1"></div>
+                <div><label for="log-gordura-visceral" class="text-sm font-medium">Gordura Visceral (Nível)</label><input type="number" step="1" id="log-gordura-visceral" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 5"></div>
+                <div><label for="log-agua-corporal" class="text-sm font-medium">Água Corporal (%)</label><input type="number" step="0.1" id="log-agua-corporal" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 55.2"></div>
+                <div><label for="log-massa-muscular" class="text-sm font-medium">Massa Muscular (kg)</label><input type="number" step="0.1" id="log-massa-muscular" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 58.4"></div>
+                <div><label for="log-massa-ossea" class="text-sm font-medium">Massa Óssea (kg)</label><input type="number" step="0.1" id="log-massa-ossea" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 3.1"></div>
+                <div><label for="log-proteina" class="text-sm font-medium">Proteína (%)</label><input type="number" step="0.1" id="log-proteina" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 18.2"></div>
+                <div><label for="log-tmb" class="text-sm font-medium">TMB (kcal)</label><input type="number" step="1" id="log-tmb" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 1650"></div>
+                <div><label for="log-idade-metabolica" class="text-sm font-medium">Idade Metabólica</label><input type="number" step="1" id="log-idade-metabolica" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 30"></div>
+                <div class="sm:col-span-2"><h4 class="font-semibold mt-4 mb-2">Medidas Corporais (cm)</h4></div>
+                <div><label for="log-pescoco" class="text-sm font-medium">Pescoço</label><input type="number" step="0.1" id="log-pescoco" class="w-full p-2 border rounded-md mt-1"></div>
+                <div><label for="log-peito" class="text-sm font-medium">Peito</label><input type="number" step="0.1" id="log-peito" class="w-full p-2 border rounded-md mt-1"></div>
+                <div><label for="log-cintura" class="text-sm font-medium">Cintura</label><input type="number" step="0.1" id="log-cintura" class="w-full p-2 border rounded-md mt-1"></div>
+                <div><label for="log-quadril" class="text-sm font-medium">Quadril</label><input type="number" step="0.1" id="log-quadril" class="w-full p-2 border rounded-md mt-1"></div>
+                 <div class="sm:col-span-2"><h4 class="font-semibold mt-4 mb-2">Atividades</h4></div>
+                <div><label for="log-calorias" class="text-sm font-medium">Calorias Consumidas (kcal)</label><input type="number" step="1" id="log-calorias" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 1800"></div>
+                <div><label for="log-exercicios" class="text-sm font-medium">Exercícios (min)</label><input type="number" step="1" id="log-exercicios" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 45"></div>
+                
+                <div class="sm:col-span-2 mt-4 text-right">
+                    <button type="button" onclick="closeModal('logModal')" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg mr-2">Cancelar</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">Salvar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Perfil -->
+    <div id="profileModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="p-6 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold">Meu Perfil</h3>
+                    <button onclick="closeModal('profileModal')" class="text-gray-500 hover:text-gray-800">&times;</button>
+                </div>
+            </div>
+            <form id="profileForm" class="p-6 space-y-4">
+                 <div>
+                    <label for="profile-name" class="text-sm font-medium">Nome</label>
+                    <input type="text" id="profile-name" class="w-full p-2 border rounded-md mt-1" placeholder="Seu nome">
+                </div>
+                <div>
+                    <label for="profile-age" class="text-sm font-medium">Idade</label>
+                    <input type="number" id="profile-age" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 35">
+                </div>
+                <div>
+                    <label for="profile-height" class="text-sm font-medium">Altura (cm)</label>
+                    <input type="number" id="profile-height" class="w-full p-2 border rounded-md mt-1" placeholder="Ex: 175">
+                </div>
+                <div>
+                    <label for="profile-gender" class="text-sm font-medium">Gênero</label>
+                    <select id="profile-gender" class="w-full p-2 border rounded-md mt-1">
+                        <option value="male">Masculino</option>
+                        <option value="female">Feminino</option>
+                    </select>
+                </div>
+                 <div class="pt-4 text-right">
+                    <button type="button" onclick="closeModal('profileModal')" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg mr-2">Cancelar</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">Salvar Perfil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Inicializa os ícones
+        lucide.createIcons();
+        
+        // --- ESTADO DA APLICAÇÃO ---
+        let state = {
+            profile: {
+                name: 'Usuário',
+                age: 30,
+                height: 175, // em cm
+                gender: 'male' // 'male' ou 'female'
+            },
+            logs: []
+        };
+        
+        // --- ELEMENTOS DO DOM ---
+        const progressChartCtx = document.getElementById('progressChart').getContext('2d');
+        const chartFilter = document.getElementById('chartFilter');
+        const metricsGrid = document.getElementById('metrics-grid');
+        const historyList = document.getElementById('history-list');
+        const logForm = document.getElementById('logForm');
+        const profileForm = document.getElementById('profileForm');
+
+        let progressChart;
+
+        // --- DEFINIÇÕES E CÁLCULOS ---
+        
+        // Nomes amigáveis para as chaves de métricas
+        const metricLabels = {
+            peso: 'Peso',
+            imc: 'IMC',
+            gordura_corporal: 'Gordura Corporal',
+            taxa_muscular: 'Taxa Muscular',
+            massa_livre_gordura: 'Massa Livre de Gordura',
+            gordura_subcutanea: 'Gordura Subcutânea',
+            gordura_visceral: 'Gordura Visceral',
+            agua_corporal: 'Água Corporal',
+            massa_muscular: 'Massa Muscular',
+            massa_ossea: 'Massa Óssea',
+            proteina: 'Proteína',
+            tmb: 'TMB',
+            idade_metabolica: 'Idade Metabólica',
+            medidas_corporais: 'Medidas Corporais'
+        };
+
+        // Função para obter os valores ideais.
+        // Estes são valores de referência e podem variar.
+        const getIdealRange = (metric, value) => {
+            const { gender, age, height } = state.profile;
+            value = parseFloat(value);
+            
+            // Status: 'ideal', 'bom', 'atencao', 'alto', 'baixo'
+            switch (metric) {
+                case 'imc':
+                    if (value < 18.5) return { range: 'Abaixo de 18.5', status: 'baixo' };
+                    if (value <= 24.9) return { range: '18.5 - 24.9', status: 'ideal' };
+                    if (value <= 29.9) return { range: '25.0 - 29.9', status: 'atencao' };
+                    return { range: 'Acima de 30.0', status: 'alto' };
+                case 'gordura_corporal':
+                    if (gender === 'male') {
+                        if (age <= 39) {
+                            if (value < 8) return { range: '8-20%', status: 'baixo' };
+                            if (value <= 20) return { range: '8-20%', status: 'ideal' };
+                            return { range: '8-20%', status: 'alto' };
+                        } else {
+                            if (value < 11) return { range: '11-22%', status: 'baixo' };
+                            if (value <= 22) return { range: '11-22%', status: 'ideal' };
+                            return { range: '11-22%', status: 'alto' };
+                        }
+                    } else { // female
+                        if (age <= 39) {
+                            if (value < 21) return { range: '21-33%', status: 'baixo' };
+                            if (value <= 33) return { range: '21-33%', status: 'ideal' };
+                            return { range: '21-33%', status: 'alto' };
+                        } else {
+                            if (value < 23) return { range: '23-34%', status: 'baixo' };
+                            if (value <= 34) return { range: '23-34%', status: 'ideal' };
+                            return { range: '23-34%', status: 'alto' };
+                        }
+                    }
+                case 'gordura_visceral':
+                     if (value <= 9) return { range: '1 - 9', status: 'ideal' };
+                     if (value <= 14) return { range: '1 - 9', status: 'atencao' };
+                     return { range: '1 - 9', status: 'alto' };
+                case 'agua_corporal':
+                    const idealWater = gender === 'male' ? 60 : 55;
+                    if (value >= idealWater - 5 && value <= idealWater + 5) return { range: `${idealWater-5}-${idealWater+5}%`, status: 'ideal' };
+                    return { range: `${idealWater-5}-${idealWater+5}%`, status: 'atencao' };
+                case 'taxa_muscular':
+                    if (gender === 'male') {
+                        if (value >= 33.3) return { range: '> 33.3%', status: 'ideal' };
+                        return { range: '> 33.3%', status: 'baixo' };
+                    } else { // female
+                         if (value >= 27.3) return { range: '> 27.3%', status: 'ideal' };
+                         return { range: '> 27.3%', status: 'baixo' };
+                    }
+                case 'massa_ossea':
+                    // Varia muito com peso corporal, simplificado aqui.
+                    const lastLog = getLatestLog();
+                    if (!lastLog || !lastLog.peso) return { range: 'N/A', status: 'atencao' };
+                    let idealBoneMass;
+                    if (gender === 'male') {
+                        if (lastLog.peso < 65) idealBoneMass = 2.65;
+                        else if (lastLog.peso <= 95) idealBoneMass = 3.29;
+                        else idealBoneMass = 3.69;
+                    } else {
+                        if (lastLog.peso < 50) idealBoneMass = 1.95;
+                        else if (lastLog.peso <= 75) idealBoneMass = 2.40;
+                        else idealBoneMass = 2.95;
+                    }
+                    if (Math.abs(value - idealBoneMass) < 0.5) return { range: `~${idealBoneMass.toFixed(2)} kg`, status: 'ideal' };
+                    return { range: `~${idealBoneMass.toFixed(2)} kg`, status: 'atencao' };
+                default:
+                    return { range: 'N/A', status: 'neutro' };
+            }
+        };
+        
+        const getStatusColor = (status) => {
+            switch(status) {
+                case 'ideal': return 'bg-green-500';
+                case 'bom': return 'bg-blue-500';
+                case 'atencao': return 'bg-yellow-500';
+                case 'alto':
+                case 'baixo': 
+                    return 'bg-red-500';
+                default: return 'bg-gray-400';
+            }
+        };
+
+        // --- FUNÇÕES DE RENDERIZAÇÃO ---
+        
+        const renderMetrics = () => {
+            metricsGrid.innerHTML = '';
+            const lastLog = getLatestLog();
+
+            if (!lastLog) {
+                metricsGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">Adicione um registro para ver suas métricas.</p>`;
+                return;
+            }
+
+            // Calculos derivados
+            if (state.profile.height && lastLog.peso) {
+                const heightInMeters = state.profile.height / 100;
+                lastLog.imc = (lastLog.peso / (heightInMeters * heightInMeters)).toFixed(2);
+            }
+            if (lastLog.peso && lastLog.gordura_corporal) {
+                lastLog.massa_livre_gordura = (lastLog.peso * (1 - lastLog.gordura_corporal / 100)).toFixed(2);
+            }
+
+            const metricsToDisplay = [
+                'peso', 'imc', 'gordura_corporal', 'taxa_muscular', 'gordura_visceral', 'agua_corporal',
+                'massa_muscular', 'massa_ossea', 'proteina', 'tmb', 'idade_metabolica', 'massa_livre_gordura'
+            ];
+            
+            metricsToDisplay.forEach(key => {
+                if (lastLog[key] !== undefined && lastLog[key] !== null) {
+                    const value = lastLog[key];
+                    const unit = getUnit(key);
+                    const { range, status } = getIdealRange(key, value);
+                    
+                    const card = `
+                        <div class="metric-card bg-gray-50 p-4 rounded-lg flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between text-sm text-gray-500">
+                                    <span>${metricLabels[key] || key}</span>
+                                    <span class="h-2.5 w-2.5 rounded-full ${getStatusColor(status)}"></span>
+                                </div>
+                                <p class="text-2xl font-bold mt-1">${value} <span class="text-lg font-medium">${unit}</span></p>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-2">Ideal: ${range}</p>
+                        </div>
+                    `;
+                    metricsGrid.innerHTML += card;
+                }
+            });
+        };
+        
+        const getUnit = (metric) => {
+             const units = {
+                peso: 'kg',
+                gordura_corporal: '%',
+                taxa_muscular: '%',
+                gordura_visceral: '',
+                agua_corporal: '%',
+                massa_muscular: 'kg',
+                massa_ossea: 'kg',
+                proteina: '%',
+                tmb: 'kcal',
+                idade_metabolica: 'anos',
+                massa_livre_gordura: 'kg',
+                imc: ''
+            };
+            return units[metric] || '';
+        }
+
+        const renderChart = () => {
+            const days = parseInt(chartFilter.value);
+            const filteredLogs = state.logs
+                .map(log => ({ ...log, dateObj: new Date(log.date) }))
+                .sort((a, b) => a.dateObj - b.dateObj)
+                .slice(-days);
+
+            const labels = filteredLogs.map(log => new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+            const weightData = filteredLogs.map(log => log.peso);
+            const fatData = filteredLogs.map(log => log.gordura_corporal);
+
+            if (progressChart) {
+                progressChart.destroy();
+            }
+
+            progressChart = new Chart(progressChartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Peso (kg)',
+                        data: weightData,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Gordura Corporal (%)',
+                        data: fatData,
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Peso (kg)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                             title: {
+                                display: true,
+                                text: 'Gordura Corporal (%)'
+                            },
+                            grid: {
+                                drawOnChartArea: false, 
+                            },
+                        },
+                    }
+                }
+            });
+        };
+        
+        const renderHistory = () => {
+            historyList.innerHTML = '';
+            if (state.logs.length === 0) {
+                 historyList.innerHTML = `<p class="text-gray-500 text-center">Nenhum registro encontrado.</p>`;
+                 return;
+            }
+            
+            const sortedLogs = [...state.logs].sort((a, b) => new Date(b.date) - new Date(a.date));
+            sortedLogs.forEach(log => {
+                const date = new Date(log.date);
+                const item = `
+                    <div class="flex justify-between items-center p-2 rounded-md hover:bg-gray-100">
+                        <div>
+                            <p class="font-semibold">${date.toLocaleDateString('pt-BR', {weekday: 'long', day: '2-digit', month: 'short'})}</p>
+                            <p class="text-sm text-gray-500">${log.peso} kg • ${log.gordura_corporal || 'N/A'}% gordura</p>
+                        </div>
+                         <button onclick="deleteLog('${log.id}')" class="text-red-500 hover:text-red-700 p-1"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                    </div>
+                `;
+                historyList.innerHTML += item;
+            });
+            lucide.createIcons(); // Recriar ícones
+        };
+        
+        const renderSummary = () => {
+            const today = new Date().toISOString().split('T')[0];
+            const todayLog = state.logs.find(log => log.date === today);
+
+            document.getElementById('summary-calories').textContent = `${todayLog?.calorias || 0} kcal`;
+            document.getElementById('summary-exercise').textContent = `${todayLog?.exercicios || 0} min`;
+        };
+
+        const updateAll = () => {
+            renderMetrics();
+            renderChart();
+            renderHistory();
+            renderSummary();
+            saveState();
+        };
+
+        // --- MANIPULAÇÃO DE DADOS ---
+
+        const addLog = (data) => {
+            // Remove log existente para a mesma data, se houver
+            state.logs = state.logs.filter(log => log.date !== data.date);
+            
+            const newLog = {
+                id: Date.now().toString(),
+                ...data
+            };
+            state.logs.push(newLog);
+            updateAll();
+        };
+
+        window.deleteLog = (id) => {
+            if (confirm('Tem certeza que deseja excluir este registro?')) {
+                state.logs = state.logs.filter(log => log.id !== id);
+                updateAll();
+            }
+        };
+        
+        const updateProfile = (data) => {
+            state.profile = { ...state.profile, ...data };
+            updateAll();
+        };
+
+        const getLatestLog = () => {
+            if (state.logs.length === 0) return null;
+            return [...state.logs].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        };
+
+        // --- PERSISTÊNCIA (localStorage) ---
+        const saveState = () => {
+            localStorage.setItem('healthTrackerState', JSON.stringify(state));
+        };
+
+        const loadState = () => {
+            const savedState = localStorage.getItem('healthTrackerState');
+            if (savedState) {
+                state = JSON.parse(savedState);
+            } else {
+                // Adiciona dados de exemplo se não houver estado salvo
+                const today = new Date();
+                const sampleLogs = [
+                    { id: '1', date: new Date(today.setDate(today.getDate() - 2)).toISOString().split('T')[0], peso: 82, gordura_corporal: 25, taxa_muscular: 32, gordura_visceral: 7, agua_corporal: 50, massa_muscular: 60, massa_ossea: 3.2, proteina: 17, tmb: 1700, idade_metabolica: 35, calorias: 2000, exercicios: 30 },
+                    { id: '2', date: new Date(today.setDate(today.getDate() + 1)).toISOString().split('T')[0], peso: 81.5, gordura_corporal: 24.8, taxa_muscular: 32.2, gordura_visceral: 7, agua_corporal: 50.5, massa_muscular: 60.2, massa_ossea: 3.2, proteina: 17.1, tmb: 1690, idade_metabolica: 34, calorias: 1800, exercicios: 45 }
+                ];
+                state.logs = sampleLogs;
+            }
+        };
+
+        // --- MODAIS ---
+        window.openModal = (id) => {
+            if (id === 'logModal') {
+                document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
+            }
+             if (id === 'profileModal') {
+                document.getElementById('profile-name').value = state.profile.name;
+                document.getElementById('profile-age').value = state.profile.age;
+                document.getElementById('profile-height').value = state.profile.height;
+                document.getElementById('profile-gender').value = state.profile.gender;
+            }
+            document.getElementById(id).classList.add('is-open');
+        };
+
+        window.closeModal = (id) => {
+            document.getElementById(id).classList.remove('is-open');
+        };
+
+        // --- EVENT LISTENERS ---
+        logForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {};
+            // Itera sobre todos os inputs do formulário
+            for (let [key, value] of formData.entries()) {
+                 const id = e.target.querySelector(`[name="${key}"]`)?.id || `log-${key}`;
+                 const cleanKey = id.replace('log-', '').replace(/-/g, '_');
+                 if (value) { // Só adiciona se tiver valor
+                     data[cleanKey] = parseFloat(value) || value;
+                 }
+            }
+             data.date = document.getElementById('log-date').value;
+             // Coleta dados específicos que não estão no FormData padrão
+             const specificIds = ['peso', 'gordura-corporal', 'taxa-muscular', 'gordura-visceral', 'agua-corporal', 'massa-muscular', 'massa-ossea', 'proteina', 'tmb', 'idade-metabolica', 'pescoco', 'peito', 'cintura', 'quadril', 'calorias', 'exercicios'];
+             specificIds.forEach(id => {
+                const element = document.getElementById(`log-${id}`);
+                if (element && element.value) {
+                    data[id.replace(/-/g, '_')] = parseFloat(element.value);
+                }
+             });
+
+            addLog(data);
+            e.target.reset();
+            closeModal('logModal');
+        });
+
+        profileForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('profile-name').value,
+                age: parseInt(document.getElementById('profile-age').value),
+                height: parseInt(document.getElementById('profile-height').value),
+                gender: document.getElementById('profile-gender').value,
+            };
+            updateProfile(data);
+            closeModal('profileModal');
+        });
+
+        chartFilter.addEventListener('change', renderChart);
+        
+        // --- INICIALIZAÇÃO ---
+        loadState();
+        updateAll();
+    });
+    </script>
+</body>
+</html>
