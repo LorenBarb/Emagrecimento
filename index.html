@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Acompanhamento de Emagrecimento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+            color: #d1d5db; /* text-gray-300 */
+        }
+        .card {
+            background-color: #1f2937; /* bg-gray-800 */
+            border: 1px solid #374151; /* border-gray-700 */
+            border-radius: 1rem; /* rounded-2xl */
+        }
+        .metric-card {
+            transition: transform 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            border-color: #FBBF24; /* border-amber-400 */
+        }
+        /* Estilo para a barra de rolagem */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        .modal {
+            display: none;
+        }
+        .modal.is-open {
+            display: flex;
+        }
+        /* Custom styles for form elements */
+        .form-input {
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            color: #d1d5db;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #FBBF24; /* border-amber-400 */
+            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.5);
+        }
+        .tab-button {
+             border-color: transparent;
+        }
+        .tab-button.active {
+            color: #FBBF24; /* text-amber-400 */
+            border-color: #FBBF24; /* border-amber-400 */
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="app" class="min-h-screen p-4 sm:p-6 lg:p-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-white">Painel de Bem-Estar</h1>
+            <p class="text-gray-400 mt-1 font-light">Acompanhe sua jornada de saúde e transformação.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Coluna Principal com Abas -->
+            <div class="lg:col-span-2">
+                <div class="card">
+                    <!-- Navegação das Abas -->
+                    <div class="border-b border-gray-700">
+                        <nav class="-mb-px flex space-x-6 px-6 overflow-x-auto" aria-label="Tabs">
+                            <button class="tab-button active shrink-0 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="evolucao">
+                                Evolução Corporal
+                            </button>
+                            <button class="tab-button text-gray-400 hover:text-white hover:border-gray-300 shrink-0 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="metricas">
+                                Métricas Atuais
+                            </button>
+                             <button class="tab-button text-gray-400 hover:text-white hover:border-gray-300 shrink-0 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="medidas-corporais">
+                                Medidas Corporais
+                            </button>
+                            <button class="tab-button text-gray-400 hover:text-white hover:border-gray-300 shrink-0 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="resumo">
+                                Resumo Diário
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- Conteúdo das Abas -->
+                    <div class="p-6">
+                        <div id="tab-evolucao" class="tab-content">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                                <h2 class="text-xl font-bold text-white">Acompanhamento de Progresso</h2>
+                                <select id="chartFilter" class="form-input rounded-md p-2 text-sm mt-2 sm:mt-0">
+                                    <option value="7">Últimos 7 dias</option>
+                                    <option value="30" selected>Últimos 30 dias</option>
+                                    <option value="90">Últimos 90 dias</option>
+                                    <option value="365">Último Ano</option>
+                                </select>
+                            </div>
+                            <div class="h-96">
+                              <canvas id="progressChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div id="tab-metricas" class="tab-content hidden">
+                             <h2 class="text-xl font-bold text-white mb-4">Visão Geral das Métricas</h2>
+                            <div id="metrics-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <!-- Cards de métricas serão inseridos aqui pelo JS -->
+                            </div>
+                        </div>
+
+                        <div id="tab-medidas-corporais" class="tab-content hidden">
+                            <h2 class="text-xl font-bold text-white mb-4">Evolução das Medidas Corporais</h2>
+                            <div id="body-measurements-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <!-- Cards de medidas corporais serão inseridos aqui -->
+                            </div>
+                        </div>
+
+                        <div id="tab-resumo" class="tab-content hidden">
+                            <h2 class="text-xl font-bold text-white mb-4">Resumo de Hoje</h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div class="bg-gray-800 p-6 rounded-lg">
+                                    <div class="flex items-center text-gray-400">
+                                        <i data-lucide="flame" class="w-5 h-5 mr-2"></i>
+                                        <span>Calorias Consumidas</span>
+                                    </div>
+                                    <p id="summary-tab-calories" class="text-4xl font-bold text-green-400 mt-2">0 <span class="text-2xl font-medium text-gray-300">kcal</span></p>
+                                </div>
+                                <div class="bg-gray-800 p-6 rounded-lg">
+                                    <div class="flex items-center text-gray-400">
+                                        <i data-lucide="activity" class="w-5 h-5 mr-2"></i>
+                                        <span>Tempo de Exercício</span>
+                                    </div>
+                                    <p id="summary-tab-exercise" class="text-4xl font-bold text-sky-400 mt-2">0 <span class="text-2xl font-medium text-gray-300">min</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coluna Lateral -->
+            <div class="space-y-8">
+                <!-- Ações Rápidas -->
+                <div class="card p-6">
+                    <h2 class="text-xl font-bold text-white mb-4">Ações Rápidas</h2>
+                    <div class="space-y-3">
+                        <button onclick="openModal('logModal')" class="w-full flex items-center justify-center bg-amber-400 text-gray-900 font-semibold py-3 px-4 rounded-lg hover:bg-amber-500 transition-colors">
+                            <i data-lucide="plus-circle" class="mr-2 h-5 w-5"></i>
+                            Adicionar Registro
+                        </button>
+                         <button onclick="openModal('profileModal')" class="w-full flex items-center justify-center bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg hover:bg-gray-600 transition-colors">
+                            <i data-lucide="user" class="mr-2 h-5 w-5"></i>
+                            Editar Perfil
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Histórico de Registros -->
+                <div class="card p-6">
+                    <h2 class="text-xl font-bold text-white mb-4">Histórico Recente</h2>
+                    <div id="history-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                        <!-- Itens do histórico serão inseridos aqui -->
+                        <p class="text-gray-500 text-center">Nenhum registro encontrado.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Registro -->
+    <div id="logModal" class="modal fixed inset-0 bg-black bg-opacity-70 items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+             <div class="p-6 border-b border-gray-700">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-white">Novo Registro Diário</h3>
+                    <button onclick="closeModal('logModal')" class="text-gray-400 hover:text-white">&times;</button>
+                </div>
+            </div>
+            <form id="logForm" class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 overflow-y-auto">
+                <input type="date" id="log-date" class="sm:col-span-3 p-2 form-input rounded-md" required>
+                <!-- Métricas Principais -->
+                <div class="sm:col-span-3"><h4 class="font-semibold mt-2 mb-2 text-white">Métricas Principais</h4></div>
+                <div><label for="log-peso" class="text-sm font-medium text-gray-400">Peso (kg)</label><input type="number" step="0.1" id="log-peso" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 75.5"></div>
+                <div><label for="log-gordura-corporal" class="text-sm font-medium text-gray-400">Gordura Corporal (%)</label><input type="number" step="0.1" id="log-gordura-corporal" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 22.3"></div>
+                <div><label for="log-taxa-muscular" class="text-sm font-medium text-gray-400">Taxa Muscular (%)</label><input type="number" step="0.1" id="log-taxa-muscular" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 35.1"></div>
+                
+                <!-- Medidas Corporais -->
+                <div class="sm:col-span-3"><h4 class="font-semibold mt-4 mb-2 text-white">Medidas Corporais (cm)</h4></div>
+                <div><label for="log-busto" class="text-sm font-medium text-gray-400">Busto</label><input type="number" step="0.1" id="log-busto" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-cintura" class="text-sm font-medium text-gray-400">Cintura</label><input type="number" step="0.1" id="log-cintura" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-abdomen" class="text-sm font-medium text-gray-400">Abdômen</label><input type="number" step="0.1" id="log-abdomen" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-quadril" class="text-sm font-medium text-gray-400">Quadril</label><input type="number" step="0.1" id="log-quadril" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-coxa-direita" class="text-sm font-medium text-gray-400">Coxa Direita</label><input type="number" step="0.1" id="log-coxa-direita" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-coxa-esquerda" class="text-sm font-medium text-gray-400">Coxa Esquerda</label><input type="number" step="0.1" id="log-coxa-esquerda" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-panturrilha-direita" class="text-sm font-medium text-gray-400">Panturrilha Direita</label><input type="number" step="0.1" id="log-panturrilha-direita" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-panturrilha-esquerda" class="text-sm font-medium text-gray-400">Panturrilha Esquerda</label><input type="number" step="0.1" id="log-panturrilha-esquerda" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-braco-direito" class="text-sm font-medium text-gray-400">Braço Direito</label><input type="number" step="0.1" id="log-braco-direito" class="w-full p-2 form-input rounded-md mt-1"></div>
+                <div><label for="log-braco-esquerdo" class="text-sm font-medium text-gray-400">Braço Esquerdo</label><input type="number" step="0.1" id="log-braco-esquerdo" class="w-full p-2 form-input rounded-md mt-1"></div>
+                
+                <!-- Métricas Adicionais -->
+                <div class="sm:col-span-3"><h4 class="font-semibold mt-4 mb-2 text-white">Métricas Adicionais</h4></div>
+                <div><label for="log-gordura-subcutanea" class="text-sm font-medium text-gray-400">Gordura Subcutânea (%)</label><input type="number" step="0.1" id="log-gordura-subcutanea" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 18.5"></div>
+                <div><label for="log-gordura-visceral" class="text-sm font-medium text-gray-400">Gordura Visceral (Nível)</label><input type="number" step="1" id="log-gordura-visceral" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 5"></div>
+                <div><label for="log-massa-muscular" class="text-sm font-medium text-gray-400">Massa Muscular (kg)</label><input type="number" step="0.1" id="log-massa-muscular" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 58.4"></div>
+                <div><label for="log-massa-muscular-esqueletica" class="text-sm font-medium text-gray-400">M. Muscular Esquelética (kg)</label><input type="number" step="0.1" id="log-massa-muscular-esqueletica" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 30.2"></div>
+                <div><label for="log-agua-corporal" class="text-sm font-medium text-gray-400">Água Corporal (%)</label><input type="number" step="0.1" id="log-agua-corporal" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 55.2"></div>
+                <div><label for="log-massa-ossea" class="text-sm font-medium text-gray-400">Massa Óssea (kg)</label><input type="number" step="0.1" id="log-massa-ossea" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 3.1"></div>
+                <div><label for="log-proteina" class="text-sm font-medium text-gray-400">Proteína (%)</label><input type="number" step="0.1" id="log-proteina" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 18.2"></div>
+                <div><label for="log-tmb" class="text-sm font-medium text-gray-400">TMB (kcal)</label><input type="number" step="1" id="log-tmb" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 1650"></div>
+                <div><label for="log-idade-metabolica" class="text-sm font-medium text-gray-400">Idade Metabólica</label><input type="number" step="1" id="log-idade-metabolica" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 30"></div>
+                
+                 <div class="sm:col-span-3"><h4 class="font-semibold mt-4 mb-2 text-white">Atividades</h4></div>
+                <div><label for="log-calorias" class="text-sm font-medium text-gray-400">Calorias Consumidas (kcal)</label><input type="number" step="1" id="log-calorias" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 1800"></div>
+                <div><label for="log-exercicios" class="text-sm font-medium text-gray-400">Exercícios (min)</label><input type="number" step="1" id="log-exercicios" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 45"></div>
+            </form>
+             <div class="p-6 border-t border-gray-700 mt-auto">
+                 <div class="flex justify-end">
+                    <button type="button" onclick="closeModal('logModal')" class="bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg mr-2 hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button type="submit" form="logForm" class="bg-amber-400 text-gray-900 font-semibold py-2 px-4 rounded-lg hover:bg-amber-500 transition-colors">Salvar Registro</button>
+                </div>
+             </div>
+        </div>
+    </div>
+
+    <!-- Modal de Perfil -->
+    <div id="profileModal" class="modal fixed inset-0 bg-black bg-opacity-70 items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-xl w-full max-w-md">
+            <div class="p-6 border-b border-gray-700">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-white">Meu Perfil</h3>
+                    <button onclick="closeModal('profileModal')" class="text-gray-400 hover:text-white">&times;</button>
+                </div>
+            </div>
+            <form id="profileForm" class="p-6 space-y-4">
+                 <div>
+                    <label for="profile-name" class="text-sm font-medium text-gray-400">Nome</label>
+                    <input type="text" id="profile-name" class="w-full p-2 form-input rounded-md mt-1" placeholder="Seu nome">
+                </div>
+                <div>
+                    <label for="profile-age" class="text-sm font-medium text-gray-400">Idade</label>
+                    <input type="number" id="profile-age" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 35">
+                </div>
+                <div>
+                    <label for="profile-height" class="text-sm font-medium text-gray-400">Altura (cm)</label>
+                    <input type="number" id="profile-height" class="w-full p-2 form-input rounded-md mt-1" placeholder="Ex: 175">
+                </div>
+                <div>
+                    <label for="profile-gender" class="text-sm font-medium text-gray-400">Gênero</label>
+                    <select id="profile-gender" class="w-full p-2 form-input rounded-md mt-1">
+                        <option value="male">Masculino</option>
+                        <option value="female">Feminino</option>
+                    </select>
+                </div>
+                 <div class="pt-4 flex justify-end">
+                    <button type="button" onclick="closeModal('profileModal')" class="bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg mr-2 hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button type="submit" class="bg-amber-400 text-gray-900 font-semibold py-2 px-4 rounded-lg hover:bg-amber-500 transition-colors">Salvar Perfil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- REMOÇÃO DA LÓGICA DE localStorage ---
+        // A LÓGICA AGORA É BASEADA EM API
+        
+        // --- ESTADO DA APLICAÇÃO (CLIENT-SIDE) ---
+        let state = {
+            profile: {},
+            logs: []
+        };
+        
+        // --- ELEMENTOS DO DOM ---
+        const progressChartCtx = document.getElementById('progressChart').getContext('2d');
+        const chartFilter = document.getElementById('chartFilter');
+        const metricsGrid = document.getElementById('metrics-grid');
+        const bodyMeasurementsGrid = document.getElementById('body-measurements-grid');
+        const historyList = document.getElementById('history-list');
+        const logForm = document.getElementById('logForm');
+        const profileForm = document.getElementById('profileForm');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        let progressChart;
+        
+        // --- DEMAIS FUNÇÕES (renderização, cálculos, etc) ---
+        // (As funções de renderMetrics, renderBodyMeasurements, renderChart, etc. continuam aqui,
+        // praticamente idênticas às da versão anterior, pois elas apenas leem o 'state' local)
+
+        const metricDetails = {
+            peso: { label: 'Peso', icon: 'weight' },
+            imc: { label: 'IMC', icon: 'gauge-circle' },
+            gordura_corporal: { label: 'Gordura Corporal', icon: 'pie-chart' },
+            gordura_subcutanea: { label: 'Gordura Subcutânea', icon: 'layers' },
+            gordura_visceral: { label: 'Gordura Visceral', icon: 'alert-triangle' },
+            taxa_muscular: { label: 'Taxa Muscular', icon: 'dumbbell' },
+            massa_livre_gordura: { label: 'Massa Livre de Gordura', icon: 'shield' },
+            agua_corporal: { label: 'Água Corporal', icon: 'droplet' },
+            massa_muscular: { label: 'Massa Muscular', icon: 'person-standing' },
+            massa_muscular_esqueletica: { label: 'Massa Muscular Esquelética', icon: 'bone' },
+            massa_ossea: { label: 'Massa Óssea', icon: 'bone' },
+            proteina: { label: 'Proteína', icon: 'beef' },
+            tmb: { label: 'TMB', icon: 'flame' },
+            idade_metabolica: { label: 'Idade Metabólica', icon: 'rewind' },
+        };
+        
+        const bodyMeasurementDetails = {
+            busto: { label: 'Busto', icon: 'ruler' },
+            cintura: { label: 'Cintura', icon: 'ruler' },
+            abdomen: { label: 'Abdômen', icon: 'ruler' },
+            quadril: { label: 'Quadril', icon: 'ruler' },
+            coxa_direita: { label: 'Coxa Direita', icon: 'ruler' },
+            coxa_esquerda: { label: 'Coxa Esquerda', icon: 'ruler' },
+            panturrilha_direita: { label: 'Panturrilha Direita', icon: 'ruler' },
+            panturrilha_esquerda: { label: 'Panturrilha Esquerda', icon: 'ruler' },
+            braco_direito: { label: 'Braço Direito', icon: 'ruler' },
+            braco_esquerdo: { label: 'Braço Esquerdo', icon: 'ruler' },
+        };
+
+        const getIdealRange = (metric, value) => {
+            const { gender, age } = state.profile;
+            value = parseFloat(value);
+            switch (metric) {
+                case 'imc': if (value < 18.5) return { range: 'Abaixo de 18.5', status: 'baixo' }; if (value <= 24.9) return { range: '18.5 - 24.9', status: 'ideal' }; if (value <= 29.9) return { range: '25.0 - 29.9', status: 'atencao' }; return { range: 'Acima de 30.0', status: 'alto' };
+                case 'gordura_corporal': if (gender === 'male') { if (age <= 39) { if (value < 8) return { range: '8-20%', status: 'baixo' }; if (value <= 20) return { range: '8-20%', status: 'ideal' }; return { range: '8-20%', status: 'alto' }; } else { if (value < 11) return { range: '11-22%', status: 'baixo' }; if (value <= 22) return { range: '11-22%', status: 'ideal' }; return { range: '11-22%', status: 'alto' }; } } else { if (age <= 39) { if (value < 21) return { range: '21-33%', status: 'baixo' }; if (value <= 33) return { range: '21-33%', status: 'ideal' }; return { range: '21-33%', status: 'alto' }; } else { if (value < 23) return { range: '23-34%', status: 'baixo' }; if (value <= 34) return { range: '23-34%', status: 'ideal' }; return { range: '23-34%', status: 'alto' }; } }
+                case 'gordura_visceral': if (value <= 9) return { range: '1 - 9', status: 'ideal' }; if (value <= 14) return { range: '1 - 9', status: 'atencao' }; return { range: '1 - 9', status: 'alto' };
+                case 'agua_corporal': const idealWater = gender === 'male' ? 60 : 55; if (value >= idealWater - 5 && value <= idealWater + 5) return { range: `${idealWater - 5}-${idealWater + 5}%`, status: 'ideal' }; return { range: `${idealWater - 5}-${idealWater + 5}%`, status: 'atencao' };
+                case 'taxa_muscular': if (gender === 'male') { if (value >= 33.3) return { range: '> 33.3%', status: 'ideal' }; return { range: '> 33.3%', status: 'baixo' }; } else { if (value >= 27.3) return { range: '> 27.3%', status: 'ideal' }; return { range: '> 27.3%', status: 'baixo' }; }
+                case 'massa_ossea': const lastLog = getLatestLog(); if (!lastLog || !lastLog.peso) return { range: 'N/A', status: 'atencao' }; let idealBoneMass; if (gender === 'male') { if (lastLog.peso < 65) idealBoneMass = 2.65; else if (lastLog.peso <= 95) idealBoneMass = 3.29; else idealBoneMass = 3.69; } else { if (lastLog.peso < 50) idealBoneMass = 1.95; else if (lastLog.peso <= 75) idealBoneMass = 2.40; else idealBoneMass = 2.95; } if (Math.abs(value - idealBoneMass) < 0.5) return { range: `~${idealBoneMass.toFixed(2)} kg`, status: 'ideal' }; return { range: `~${idealBoneMass.toFixed(2)} kg`, status: 'atencao' };
+                default: return { range: 'N/A', status: 'neutro' };
+            }
+        };
+        const getStatusColor = (status) => { switch (status) { case 'ideal': return 'bg-green-500'; case 'bom': return 'bg-sky-500'; case 'atencao': return 'bg-yellow-500'; case 'alto': case 'baixo': return 'bg-red-500'; default: return 'bg-gray-500'; } };
+        const getUnit = (metric) => { const units = { peso: 'kg', gordura_corporal: '%', gordura_subcutanea: '%', taxa_muscular: '%', agua_corporal: '%', massa_muscular: 'kg', massa_muscular_esqueletica: 'kg', massa_ossea: 'kg', proteina: '%', tmb: 'kcal', idade_metabolica: 'anos', massa_livre_gordura: 'kg', }; return units[metric] || ''; };
+        const getLatestLog = () => { if (state.logs.length === 0) return null; return [...state.logs].sort((a, b) => new Date(b.date) - new Date(a.date))[0]; };
+
+        const renderMetrics = () => { metricsGrid.innerHTML = ''; const lastLog = getLatestLog(); if (!lastLog) { metricsGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">Adicione um registro para ver suas métricas.</p>`; return; } if (state.profile.height && lastLog.peso) { const heightInMeters = state.profile.height / 100; lastLog.imc = (lastLog.peso / (heightInMeters * heightInMeters)).toFixed(2); } if (lastLog.peso && lastLog.gordura_corporal) { lastLog.massa_livre_gordura = (lastLog.peso * (1 - lastLog.gordura_corporal / 100)).toFixed(2); } const sortedLogs = [...state.logs].sort((a, b) => new Date(a.date) - new Date(b.date)); Object.keys(metricDetails).forEach(key => { if (lastLog[key] !== undefined && lastLog[key] !== null) { const value = lastLog[key]; const details = metricDetails[key]; const unit = getUnit(key); const { range, status } = getIdealRange(key, value); const cardElement = document.createElement('div'); cardElement.className = "metric-card card p-4 flex flex-col justify-between bg-gray-900/50"; cardElement.innerHTML = `<div><div class="flex items-center justify-between text-sm text-gray-400"><div class="flex items-center"><i data-lucide="${details.icon}" class="w-4 h-4 mr-2"></i><span>${details.label}</span></div><span class="h-2.5 w-2.5 rounded-full ${getStatusColor(status)}" title="Status: ${status}"></span></div></div><div class="flex items-end justify-between mt-2"><p class="text-2xl font-bold text-white">${value} <span class="text-lg font-medium text-gray-300">${unit}</span></p><div class="w-2/5 h-8"><canvas id="sparkline-${key}"></canvas></div></div><p class="text-xs text-gray-500 mt-1">Ideal: ${range}</p>`; metricsGrid.appendChild(cardElement); const canvas = document.getElementById(`sparkline-${key}`); const last10Logs = sortedLogs.slice(-10); const chartData = last10Logs.map(log => log[key]).filter(v => v !== undefined && v !== null); if (canvas && chartData.length > 1) { new Chart(canvas.getContext('2d'), { type: 'line', data: { labels: chartData.map(() => ''), datasets: [{ data: chartData, borderColor: '#FBBF24', borderWidth: 2, pointRadius: 0, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } } }); } } }); lucide.createIcons(); };
+        const renderBodyMeasurements = () => { bodyMeasurementsGrid.innerHTML = ''; const lastLog = getLatestLog(); if (!lastLog) { bodyMeasurementsGrid.innerHTML = `<p class="col-span-full text-center text-gray-500">Adicione um registro para ver suas medidas.</p>`; return; } const sortedLogs = [...state.logs].sort((a, b) => new Date(a.date) - new Date(b.date)); Object.keys(bodyMeasurementDetails).forEach(key => { if (lastLog[key] !== undefined && lastLog[key] !== null) { const value = lastLog[key]; const details = bodyMeasurementDetails[key]; const cardElement = document.createElement('div'); cardElement.className = "metric-card card p-4 flex flex-col justify-between bg-gray-900/50"; cardElement.innerHTML = `<div><div class="flex items-center justify-between text-sm text-gray-400"><div class="flex items-center"><i data-lucide="${details.icon}" class="w-4 h-4 mr-2"></i><span>${details.label}</span></div></div></div><div class="flex items-end justify-between mt-2"><p class="text-2xl font-bold text-white">${value} <span class="text-lg font-medium text-gray-300">cm</span></p><div class="w-2/5 h-8"><canvas id="sparkline-body-${key}"></canvas></div></div>`; bodyMeasurementsGrid.appendChild(cardElement); const canvas = document.getElementById(`sparkline-body-${key}`); const last10Logs = sortedLogs.slice(-10); const chartData = last10Logs.map(log => log[key]).filter(v => v !== undefined && v !== null); if (canvas && chartData.length > 1) { new Chart(canvas.getContext('2d'), { type: 'line', data: { labels: chartData.map(() => ''), datasets: [{ data: chartData, borderColor: '#a78bfa', borderWidth: 2, pointRadius: 0, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } } }); } } }); lucide.createIcons(); };
+        const renderChart = () => { const days = parseInt(chartFilter.value); const filteredLogs = state.logs.map(log => ({ ...log, dateObj: new Date(log.date) })).sort((a, b) => a.dateObj - b.dateObj).slice(-days); const labels = filteredLogs.map(log => new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })); const weightData = filteredLogs.map(log => log.peso); const fatData = filteredLogs.map(log => log.gordura_corporal); if (progressChart) progressChart.destroy(); progressChart = new Chart(progressChartCtx, { type: 'line', data: { labels: labels, datasets: [{ label: 'Peso (kg)', data: weightData, borderColor: '#FBBF24', backgroundColor: 'rgba(251, 191, 36, 0.2)', fill: true, tension: 0.4, yAxisID: 'y' }, { label: 'Gordura Corporal (%)', data: fatData, borderColor: '#9CA3AF', backgroundColor: 'rgba(156, 163, 175, 0.2)', fill: true, tension: 0.4, yAxisID: 'y1' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9ca3af' } }, tooltip: { backgroundColor: '#111827', titleColor: '#d1d5db', bodyColor: '#9ca3af' } }, scales: { x: { ticks: { color: '#6b7280' }, grid: { color: 'rgba(107, 114, 128, 0.2)' } }, y: { type: 'linear', display: true, position: 'left', ticks: { color: '#6b7280' }, grid: { color: 'rgba(107, 114, 128, 0.2)' }, title: { display: true, text: 'Peso (kg)', color: '#9ca3af' } }, y1: { type: 'linear', display: true, position: 'right', ticks: { color: '#6b7280' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Gordura Corporal (%)', color: '#9ca3af' } } } } }); };
+        const renderHistory = () => { historyList.innerHTML = ''; if (state.logs.length === 0) { historyList.innerHTML = `<p class="text-gray-500 text-center">Nenhum registro encontrado.</p>`; return; } const sortedLogs = [...state.logs].sort((a, b) => new Date(b.date) - new Date(a.date)); sortedLogs.forEach(log => { const date = new Date(log.date); const item = `<div class="flex justify-between items-center p-2 rounded-md hover:bg-gray-700/50"><div><p class="font-semibold text-white">${date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })}</p><p class="text-sm text-gray-400">${log.peso || 'N/A'} kg • ${log.gordura_corporal || 'N/A'}% gordura</p></div><button onclick="deleteLog('${log._id}')" class="text-red-500 hover:text-red-400 p-1"><i data-lucide="trash-2" class="h-4 w-4"></i></button></div>`; historyList.innerHTML += item; }); lucide.createIcons(); };
+        const renderSummary = () => { const today = new Date().toISOString().split('T')[0]; const todayLog = state.logs.find(log => log.date === today); const caloriesEl = document.getElementById('summary-tab-calories'); const exerciseEl = document.getElementById('summary-tab-exercise'); if (caloriesEl) caloriesEl.innerHTML = `${todayLog?.calorias || 0} <span class="text-2xl font-medium text-gray-300">kcal</span>`; if (exerciseEl) exerciseEl.innerHTML = `${todayLog?.exercicios || 0} <span class="text-2xl font-medium text-gray-300">min</span>`; };
+
+        const updateAllUI = () => {
+            renderMetrics(); 
+            renderBodyMeasurements();
+            renderChart(); 
+            renderHistory(); 
+            renderSummary(); 
+            lucide.createIcons();
+        };
+
+        // --- MANIPULAÇÃO DE DADOS (API) ---
+        
+        async function loadData() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                state.profile = data.profile;
+                state.logs = data.logs;
+                updateAllUI();
+            } catch (error) {
+                console.error('Falha ao carregar dados do servidor:', error);
+                // Opcional: mostrar uma mensagem de erro na UI
+            }
+        }
+
+        async function addLog(data) {
+            try {
+                const response = await fetch('/api/logs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                if (response.ok) {
+                    await loadData(); // Recarrega todos os dados para manter a consistência
+                }
+            } catch (error) {
+                console.error('Falha ao salvar o registro:', error);
+            }
+        }
+
+        window.deleteLog = async (id) => {
+            if (confirm('Tem certeza que deseja excluir este registro?')) {
+                try {
+                    const response = await fetch(`/api/logs/${id}`, { method: 'DELETE' });
+                    if (response.ok) {
+                       await loadData();
+                    }
+                } catch (error) {
+                    console.error('Falha ao deletar o registro:', error);
+                }
+            }
+        };
+        
+        async function updateProfile(data) {
+             try {
+                const response = await fetch('/api/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                if (response.ok) {
+                    await loadData();
+                }
+            } catch (error) {
+                console.error('Falha ao atualizar o perfil:', error);
+            }
+        }
+        
+        // --- MODAIS E EVENT LISTENERS ---
+        window.openModal = (id) => { if (id === 'logModal') { document.getElementById('log-date').value = new Date().toISOString().split('T')[0]; } if (id === 'profileModal') { document.getElementById('profile-name').value = state.profile.name; document.getElementById('profile-age').value = state.profile.age; document.getElementById('profile-height').value = state.profile.height; document.getElementById('profile-gender').value = state.profile.gender; } document.getElementById(id).classList.add('is-open'); };
+        window.closeModal = (id) => { document.getElementById(id).classList.remove('is-open'); };
+        
+        logForm.addEventListener('submit', async (e) => { e.preventDefault(); const data = { date: document.getElementById('log-date').value }; e.target.querySelectorAll('input[type="number"]').forEach(input => { if (input.value) data[input.id.replace('log-', '').replace(/-/g, '_')] = parseFloat(input.value); }); await addLog(data); e.target.reset(); closeModal('logModal'); });
+        profileForm.addEventListener('submit', async (e) => { e.preventDefault(); const data = { name: document.getElementById('profile-name').value, age: parseInt(document.getElementById('profile-age').value), height: parseInt(document.getElementById('profile-height').value), gender: document.getElementById('profile-gender').value, }; await updateProfile(data); closeModal('profileModal'); });
+        chartFilter.addEventListener('change', renderChart);
+        tabButtons.forEach(button => { button.addEventListener('click', () => { tabButtons.forEach(btn => btn.classList.remove('active')); button.classList.add('active'); tabContents.forEach(content => content.classList.add('hidden')); document.getElementById(`tab-${button.dataset.tab}`).classList.remove('hidden'); lucide.createIcons(); }); });
+        
+        // --- INICIALIZAÇÃO ---
+        loadData(); // Carrega os dados do servidor ao iniciar
+
+    });
+    </script>
+</body>
+</html>
